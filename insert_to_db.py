@@ -1,5 +1,8 @@
 import psycopg2 as pg
-import simplejson as json
+import sys
+import itertools
+from psycopg2.extras import Json
+# import simplejson as json
 import configparser
 
 from github import Github
@@ -47,58 +50,42 @@ top_js_repos = [
 
 
 
-def setup_db(connection):
-    cur = connection.cursor()
-    cur.execute("CREATE TABLE paper_pulls (id serial, data json);")
-    conn.commit()
 
 def get_repo_objs(repoList):
     return map(lambda repo:g.get_repo(repo), repoList)
 
 
+
 def collect_prs(repoList):
     repos = get_repo_objs(repoList)
-    prlist = []
-    for repo in repos:
+    print("got repos %s" % repos)
+
+    for repo in itertools.islice(repos, 1, 2):
+        print(repo.name)
         prs = repo.get_pulls(state="closed")
-        enhanced_prs = enhance_prs(prs, repo)
-        for pr in enhanced_prs:
-            insert_to_db(conn, pr)
+        for pr in itertools.islice(prs, 2195, None):
+            enhanced_pr = build_obj(pr, repo)
+            insert_to_db(conn, enhanced_pr)
 
 
-def enhance_prs(prs, repo):
-    enhanced_prs = []
-    for pr in prs:
-        enhanced_prs.append(build_obj(pr, repo))
-
-    return enhanced_prs
 
 
 
 def build_obj(pr, repo):
     pr_service = pullrequest_service(pr, repo)
-    obj = {
-        # labelCount: pr_service.getLabelCount(),
-        # 'commentCount': pr_service.get_comment_count(),
-        # commitCount: pr_service.getCommitCount(),
-        # starsCount: pr_service.getStarsCount(),
-        # size: pr_service.getSize(),
-        # changedFiles: pr_service.getchangedFiles()
-        'rawData': pr_service.get_raw_data(),
+    success = pr_service.checkSuccess()
 
+    obj = pr.raw_data
+    obj['success'] = success
 
-        'success': pr_service.checkSuccess()
-    }
     return obj
 
 
 def insert_to_db(connection, pr):
     cur = connection.cursor()
-    cur.execute("INSERT INTO paper_pulls (data) VALUES (%s)" % json.dumps(pr))
+    cur.execute("INSERT INTO paper_pulls (data) VALUES (%s)", [Json(pr)] )
     conn.commit()
+    print("successfully added pull request %s" % pr['number'])
     
 
-
-
-# setup_db(conn)
-# prs = collect_prs(top_js_repos)
+collect_prs(top_js_repos)
