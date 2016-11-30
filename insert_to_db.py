@@ -1,15 +1,14 @@
 import psycopg2 as pg
 import simplejson as json
-import ConfigParser
+import configparser
 
 from github import Github
 
 from pullrequest_service import pullrequest_service
 
 
-config = ConfigParser.ConfigParser()
+config = configparser.ConfigParser()
 config.read('study.cfg')
-
 
 
 try:
@@ -59,54 +58,52 @@ def get_repo_objs(repoList):
 
 def collect_prs(repoList):
     repos = get_repo_objs(repoList)
-    prs = []
+    prlist = []
     for repo in repos:
         prs = repo.get_pulls(state="closed")
-        enhanced_prs(prs, repo)
+        enhanced_prs = enhance_prs(prs, repo)
+        for pr in enhanced_prs:
+            prlist.append(pr)
+
+    return prlist
 
 
-def enhance_pr(prs, repo):
+def enhance_prs(prs, repo):
+    enhanced_prs = []
     for pr in prs:
-        pr = build_obj(pr, repo, g)
+        enhanced_prs.append(build_obj(pr, repo))
+
+    return enhanced_prs
 
 
 
-def build_obj(pr, repo, github):
-    pr_service = pullrequest_service(pr, repo, github)
+def build_obj(pr, repo):
+    pr_service = pullrequest_service(pr, repo)
     obj = {
         # labelCount: pr_service.getLabelCount(),
-        commentCount: pr_service.get_comment_count(),
+        # 'commentCount': pr_service.get_comment_count(),
         # commitCount: pr_service.getCommitCount(),
         # starsCount: pr_service.getStarsCount(),
         # size: pr_service.getSize(),
         # changedFiles: pr_service.getchangedFiles()
-        rawData: pr_service.get_raw_data()
+        'rawData': pr_service.get_raw_data(),
 
 
         'success': pr_service.checkSuccess()
     }
     return obj
 
-class pullrequest_service():
-    def __init__(self, pr, repo):
-        self.pr = pr
-        self.repo = repo
 
-    def getLabelCount(self):
-        return self.pr.labels.length
-
-    def getchangedFiles(self):
-        return self.pr.changed_files
-
-    def checkSuccess(self):
-        events = self.repo.get_issue(self.pr.number).get_events()
-        close_event = next((obj for obj in events if obj.event == "closed"), None)
-
-        return self.pr.merged or close_event.commit_id if hasattr(close_event, 'commit_id') else None
-
-    def get_raw_data(self):
-        return self.pr.raw_data
+def insert_to_db(connection, prs):
+    cur = connection.cursor()
+    for pr in prs:
+        print(pr)
+        cur.execute("INSERT INTO paper_pulls (data) VALUES (%s)" % json.dumps(pr))
+        conn.commit()
+    
 
 
-setup_db(conn)
-collect_prs(top_js_repos)
+
+# setup_db(conn)
+prs = collect_prs(top_js_repos)
+insert_to_db(conn, prs)
