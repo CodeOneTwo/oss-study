@@ -100,5 +100,5 @@ def insert_to_db(connection, pr):
 
 
 
-setup_db(conn)
+# setup_db(conn)
 # prs = collect_prs(top_js_repos)
