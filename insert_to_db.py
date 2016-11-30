@@ -63,9 +63,7 @@ def collect_prs(repoList):
         prs = repo.get_pulls(state="closed")
         enhanced_prs = enhance_prs(prs, repo)
         for pr in enhanced_prs:
-            prlist.append(pr)
-
-    return prlist
+            insert_to_db(conn, pr)
 
 
 def enhance_prs(prs, repo):
@@ -94,16 +92,13 @@ def build_obj(pr, repo):
     return obj
 
 
-def insert_to_db(connection, prs):
+def insert_to_db(connection, pr):
     cur = connection.cursor()
-    for pr in prs:
-        print(pr)
-        cur.execute("INSERT INTO paper_pulls (data) VALUES (%s)" % json.dumps(pr))
-        conn.commit()
+    cur.execute("INSERT INTO paper_pulls (data) VALUES (%s)" % json.dumps(pr))
+    conn.commit()
     
 
 
 
-# setup_db(conn)
-prs = collect_prs(top_js_repos)
-insert_to_db(conn, prs)
+setup_db(conn)
+# prs = collect_prs(top_js_repos)
