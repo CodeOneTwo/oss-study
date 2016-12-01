@@ -63,7 +63,7 @@ def collect_prs(repoList):
         for repo in itertools.islice(repos, 2, 3):
             print(repo.name)
             prs = repo.get_pulls(state="closed")
-            for pr in itertools.islice(prs, 2102, None):
+            for pr in itertools.islice(prs, 2758, None):
                 enhanced_pr = build_obj(pr, repo)
                 insert_to_db(conn, enhanced_pr)
     except:
@@ -78,12 +78,14 @@ def build_obj(pr, repo):
     pr_service = pullrequest_service(pr, repo)
     success = pr_service.checkSuccess()
     event_count = pr_service.get_event_count()
+    user_contrib_count = pr_service.get_user_contrib_count()
     label_count = pr_service.get_label_count()
 
     obj = pr.raw_data
     obj['success'] = success
     obj['label_count'] = label_count
     obj['event_count'] = event_count
+    obj['user_contrib_count'] = user_contrib_count
 
     return obj
 

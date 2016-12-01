@@ -50,14 +50,29 @@ top_js_repos = [
 
 
 def update_sql():
-    update_label_count(g.get_repo("d3/d3"), "d3")
-    update_label_count(g.get_repo("facebook/react"), "react")
+    update_event_count(g.get_repo("angular/angular.js"), "angular.js")
+    update_user(g.get_repo("angular/angular.js"), "angular.js")
+    # update_label_count(g.get_repo("d3/d3"), "d3")
+    # update_label_count(g.get_repo("facebook/react"), "react")
     
-
-def update_label_count(repo, reponame):
+def update_user(repo, reponame):
     try:
-        key_name = "label_count"
-        cur = conn.cursor()
+        key_name = "user_contrib_count"
+        cursel = conn.cursor('select')
+        cursel.execute("select * from paper_pulls where data->%s IS NULL AND data->'base'->'repo'->>'name' = %s", (key_name, reponame))
+        for e in cursel:
+            issue_number = e[1]['number']
+            value = get_user_contrib_count(repo, issue_number)
+            sql_update_execution( key_name, value, e[0])
+        conn.commit()
+    except:
+        conn.commit()
+        raise
+
+
+def update_event_count(repo, reponame):
+    try:
+        key_name = "event_count"
         cursel = conn.cursor('select')
         cursel.execute("select * from paper_pulls where data->%s IS NULL AND data->'base'->'repo'->>'name' = %s", (key_name, reponame))
         for e in cursel:
@@ -77,10 +92,14 @@ def get_event_count(repo, issue_number):
         counter+=1
         return counter
 
+def get_user_contrib_count(repo, issue_number):
+    return repo.get_pull(issue_number).user.contributions
+
 
 
 def sql_update_execution( key_name, value, id):
-    print ( cur.execute("update paper_pulls set data = to_json(jsonb_set(to_jsonb(data), '{\"%s\"}', to_jsonb(%s))) where id=%s;", (key_name, label_count, id)) )
+    cur = conn.cursor()
+    cur.execute("update paper_pulls set data = to_json(jsonb_set(to_jsonb(data), %s, to_jsonb(%s))) where id=%s;", ('{"%s"}' % key_name, value, id))
     print("success of %s" % id)
 
 

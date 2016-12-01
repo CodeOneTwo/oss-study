@@ -27,6 +27,10 @@ class pullrequest_service():
             counter+=1
         return counter
 
+
+    def get_user_contrib_count(self):
+        return self.pr.user.contributions
+
     
     def get_label_count(self):
         return len(self.repo.get_issue(self.pr.number).labels)
