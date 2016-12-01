@@ -57,7 +57,7 @@ def update_sql():
     
 def update_user(repo, reponame):
     try:
-        key_name = "user_contrib_count"
+        key_name = "user_followers"
         cursel = conn.cursor('select')
         cursel.execute("select * from paper_pulls where data->%s IS NULL AND data->'base'->'repo'->>'name' = %s", (key_name, reponame))
         for e in cursel:
@@ -90,10 +90,11 @@ def get_event_count(repo, issue_number):
     counter = 0
     for event in events:
         counter+=1
-        return counter
+    print(counter)
+    return counter
 
 def get_user_contrib_count(repo, issue_number):
-    return repo.get_pull(issue_number).user.contributions
+    return repo.get_pull(issue_number).user.followers
 
 
 

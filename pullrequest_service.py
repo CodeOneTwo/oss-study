@@ -28,8 +28,8 @@ class pullrequest_service():
         return counter
 
 
-    def get_user_contrib_count(self):
-        return self.pr.user.contributions
+    def get_user_followers(self):
+        return self.pr.user.followers
 
     
     def get_label_count(self):
