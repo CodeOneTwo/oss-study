@@ -5,8 +5,10 @@ from psycopg2 import IntegrityError
 from psycopg2.extras import Json
 # import simplejson as json
 import configparser
+import datetime
 
 from github import Github
+from github import GithubException
 
 from pullrequest_service import pullrequest_service
 
@@ -60,16 +62,22 @@ def get_repo_objs(repoList):
 def collect_prs(repoList):
     repos = get_repo_objs(repoList)
 
-    try:
-        for repo in itertools.islice(repos, 2, 3):
-            print(repo.name)
-            prs = repo.get_pulls(state="closed")
-            for pr in itertools.islice(prs, 3076, None):
+    for repo in itertools.islice(repos, 2, 3):
+        print(repo.name)
+        prs = repo.get_pulls(state="closed")
+        for pr in itertools.islice(prs, 3489, None):
+            try:
                 enhanced_pr = build_obj(pr, repo)
                 insert_to_db(conn, enhanced_pr)
-    except:
-        print(repo.name, pr.number)
-        raise
+            except GithubException.RateLimitExceededException:
+                print(repo.name, pr.number)
+                reset_time = datetime.datetime.fromtimestamp(g.rate_limiting_resettime)
+                while datetime.datetime.now() < reset_time:
+                    sleep(1)
+                insert_to_db(conn, enhanced_pr)
+            except:
+                print(repo.name, pr.number)
+                raise
 
 
 
@@ -97,6 +105,7 @@ def insert_to_db(connection, pr):
         cur.execute("INSERT INTO paper_pulls (data) VALUES (%s)", [Json(pr)] )
         print("successfully added pull request %s" % pr['number'])
     except IntegrityError:
+        print(pr["number"], " already exists in SQL")
         conn.rollback()
     else:
         conn.commit()
