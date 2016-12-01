@@ -6,6 +6,7 @@ from psycopg2.extras import Json
 import configparser
 
 from github import Github
+from github import GithubException
 
 from pullrequest_service import pullrequest_service
 
@@ -48,51 +49,39 @@ top_js_repos = [
 
 
 
+def update_sql():
+    update_label_count(g.get_repo("d3/d3"), "d3")
+    update_label_count(g.get_repo("facebook/react"), "react")
+    
 
-
-
-def get_repo_objs(repoList):
-    return map(lambda repo:g.get_repo(repo), repoList)
-
-
-
-def collect_prs(repoList):
-    repos = get_repo_objs(repoList)
-
+def update_label_count(repo, reponame):
     try:
-        for repo in itertools.islice(repos, 2, 3):
-            print(repo.name)
-            prs = repo.get_pulls(state="closed")
-            for pr in itertools.islice(prs, 2102, None):
-                enhanced_pr = build_obj(pr, repo)
-                insert_to_db(conn, enhanced_pr)
+        key_name = "label_count"
+        cur = conn.cursor()
+        cursel = conn.cursor('select')
+        cursel.execute("select * from paper_pulls where data->%s IS NULL AND data->'base'->'repo'->>'name' = %s", (key_name, reponame))
+        for e in cursel:
+            issue_number = e[1]['number']
+            value = get_event_count(repo, issue_number)
+            sql_update_execution( key_name, value, e[0])
+        conn.commit()
     except:
-        print(repo.name, pr.number)
+        conn.commit()
         raise
 
 
+def get_event_count(repo, issue_number):
+    events = repo.get_issue(issue_number).get_events()
+    counter = 0
+    for event in events:
+        counter+=1
+        return counter
 
 
 
-def build_obj(pr, repo):
-    pr_service = pullrequest_service(pr, repo)
-    success = pr_service.checkSuccess()
-    event_count = pr_service.get_event_count()
-    label_count = pr_service.get_label_count()
-
-    obj = pr.raw_data
-    obj['success'] = success
-    obj['label_count'] = label_count
-    obj['event_count'] = event_count
-
-    return obj
+def sql_update_execution( key_name, value, id):
+    print ( cur.execute("update paper_pulls set data = to_json(jsonb_set(to_jsonb(data), '{\"%s\"}', to_jsonb(%s))) where id=%s;", (key_name, label_count, id)) )
+    print("success of %s" % id)
 
 
-def insert_to_db(connection, pr):
-    cur = connection.cursor()
-    cur.execute("INSERT INTO paper_pulls (data) VALUES (%s)", [Json(pr)] )
-    conn.commit()
-    print("successfully added pull request %s" % pr['number'])
-    
-
-collect_prs(top_js_repos)
+update_sql()
